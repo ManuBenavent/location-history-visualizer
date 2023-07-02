@@ -1,11 +1,11 @@
 ( function ( $, L, prettySize ) {
-	var map, heat,
+	var map, heat,polyline,
 		heatOptions = {
 			tileOpacity: 1,
 			heatOpacity: 1,
 			radius: 25,
 			blur: 15
-		};
+		},multiPolylineOptions = {color: "#1c6e87",opacity: 0.9,weight: 3};
 
 	function status( message ) {
 		$( '#currentStatus' ).text( message );
@@ -43,10 +43,14 @@
 	}
 
 	function stageTwo ( file ) {
-    // Google Analytics event - heatmap upload file
-    ga('send', 'event', 'Heatmap', 'upload', undefined, file.size);
 
 		heat = L.heatLayer( [], heatOptions ).addTo( map );
+
+		var pathAvion = [
+		];
+
+		polyline = L.multiPolyline(pathAvion,multiPolylineOptions).addTo( map );
+
 
 		var type;
 
@@ -74,7 +78,6 @@
 		os.node( 'locations.*', function ( location ) {
 			var latitude = location.latitudeE7 * SCALAR_E7,
 				longitude = location.longitudeE7 * SCALAR_E7;
-
 			// Handle negative latlngs due to google unsigned/signed integer bug.
 			if ( latitude > 180 ) latitude = latitude - (2 ** 32) * SCALAR_E7;
 			if ( longitude > 180 ) longitude = longitude - (2 ** 32) * SCALAR_E7;
@@ -83,12 +86,20 @@
 			return oboe.drop;
 		} ).done( function () {
 			status( 'Generating map...' );
-			heat._latlngs = latlngs;
+			//heat._latlngs = latlngs;
 
-			heat.redraw();
+			//heat.redraw().remove();
+
+			 
+			for(var i = 0;i<latlngs.length;i++)
+				if(!isNaN(latlngs[i][0]) && !isNaN(latlngs[i][1]) )
+					heat.addLatLng(latlngs[i])
+		
+
 			stageThree(  /* numberProcessed */ latlngs.length );
 
 		} );
+
 
 		var fileSize = prettySize( file.size );
 
@@ -100,8 +111,6 @@
 	}
 
 	function stageThree ( numberProcessed ) {
-    // Google Analytics event - heatmap render
-    ga('send', 'event', 'Heatmap', 'render', undefined, numberProcessed);
 
 		var $done = $( '#done' );
 
@@ -114,25 +123,18 @@
 		$( '#numberProcessed' ).text( numberProcessed.toLocaleString() );
 
     $( '#launch' ).click( function () {
-      var $email = $( '#email' );
-      if ( $email.is( ':valid' ) ) {
+
         $( this ).text( 'Launching... ' );
-        $.post( '/heatmap/submit-email.php', {
-          email: $email.val()
-        } )
-        .always( function () {
-          $( 'body' ).addClass( 'map-active' );
-          $done.fadeOut();
-          activateControls();
-        } );
-      } else {
-        alert( 'Please enter a valid email address to proceed.' );
-      }
+        $( 'body' ).addClass( 'map-active' );
+        $done.fadeOut();
+        activateControls();
+     
     } );
 
 		function activateControls () {
 			var $tileLayer = $( '.leaflet-tile-pane' ),
 				$heatmapLayer = $( '.leaflet-heatmap-layer' ),
+				$multiLineLayer = $( '.leaflet-overlay-pane' ),
 				originalHeatOptions = $.extend( {}, heatOptions ); // for reset
 
 			// Update values of the dom elements
@@ -154,6 +156,7 @@
 						break;
 					case 'heatOpacity':
 						$heatmapLayer.css( 'opacity', this.value );
+						$multiLineLayer.css( 'opacity', this.value );
 						break;
 					default:
 						heatOptions[ this.id ] = Number( this.value );
